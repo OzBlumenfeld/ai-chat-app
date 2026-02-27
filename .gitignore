@@ -1,0 +1,50 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Node / React
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Environment
+.env
+.env.example
+
+# IDE
+.idea/
+.vscode/
+
+# Claude Code
+.claude/
+SKILL.md
+
+# Test & lint caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Vector store local data
+chroma_data/
+
+# Runtime storage (uploads and responses are local data only)
+storage/uploads/*
+storage/responses/*
+!storage/uploads/.gitkeep
+!storage/responses/.gitkeep
+
+# Personal files
+docs/*.pdf
+
+# OS
+.DS_Store
+Thumbs.db
