@@ -7,6 +7,7 @@ import HistoryList from '../components/HistoryList'
 import '../App.css'
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const MAX_HISTORY_PAIRS = 5  // last 5 Q&A pairs sent as context
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([])
@@ -46,22 +47,43 @@ export default function ChatPage() {
     navigate('/')
   }
 
+  /**
+   * Build the history payload from the current messages state.
+   * Converts the last MAX_HISTORY_PAIRS Q&A pairs to the API format,
+   * mapping "bot" role to "assistant" as the backend expects.
+   */
+  const buildHistory = (msgs) => {
+    const recent = msgs.slice(-MAX_HISTORY_PAIRS * 2)
+    return recent.map((m) => ({
+      role: m.role === 'bot' ? 'assistant' : 'user',
+      content: m.text,
+    }))
+  }
+
   const handleSend = async (e) => {
     e.preventDefault()
     if (!input.trim()) return
 
     const question = input.trim()
     setInput('')
-    setMessages((prev) => [...prev, { role: 'user', text: question }])
+    const nextMessages = [...messages, { role: 'user', text: question }]
+    setMessages(nextMessages)
     setLoading(true)
 
     try {
       const res = await axios.post(
         `${API}/query`,
-        { question },
+        { question, history: buildHistory(messages) },
         { headers: { Authorization: `Bearer ${token}` } }
       )
-      setMessages((prev) => [...prev, { role: 'bot', text: res.data.answer }])
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'bot',
+          text: res.data.answer,
+          sources: res.data.sources ?? [],
+        },
+      ])
     } catch (err) {
       if (err.response?.status === 401) {
         logout()
@@ -70,7 +92,7 @@ export default function ChatPage() {
       }
       setMessages((prev) => [
         ...prev,
-        { role: 'bot', text: 'Error: ' + (err.response?.data?.detail || 'Failed to get a response') },
+        { role: 'bot', text: 'Error: ' + (err.response?.data?.detail || 'Failed to get a response'), sources: [] },
       ])
     } finally {
       setLoading(false)
@@ -80,7 +102,7 @@ export default function ChatPage() {
   const handleHistorySelect = (entry) => {
     setMessages([
       { role: 'user', text: entry.question },
-      { role: 'bot', text: entry.response },
+      { role: 'bot', text: entry.response, sources: [] },
     ])
   }
 
@@ -124,6 +146,16 @@ export default function ChatPage() {
           {messages.map((msg, i) => (
             <div key={i} className={`message ${msg.role}`}>
               <div className={`bubble ${msg.role}`}>{msg.text}</div>
+              {msg.role === 'bot' && msg.sources && msg.sources.length > 0 && (
+                <div className="sources">
+                  <span className="sources-label">Sources:</span>
+                  {msg.sources.map((src, j) => (
+                    <span key={j} className="source-chip" title={src.excerpt}>
+                      {src.filename}{src.page != null ? ` (p.${src.page + 1})` : ''}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {loading && <div className="thinking">Thinking...</div>}

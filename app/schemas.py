@@ -5,7 +5,6 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field
 from app.common.uuid_mask import MaskedUUID
 
 
-
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8, max_length=16)
@@ -25,13 +24,27 @@ class UserResponse(BaseModel):
     email: str
 
 
+class ConversationMessage(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
+
+class SourceCitation(BaseModel):
+    filename: str
+    doc_id: str
+    excerpt: str
+    page: int | None = None
+
+
 class QueryRequest(BaseModel):
     question: str
+    history: list[ConversationMessage] = []
 
 
 class QueryResponse(BaseModel):
     answer: str
     source: str
+    sources: list[SourceCitation] = []
 
 
 class DocumentResponse(BaseModel):

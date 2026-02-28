@@ -1,10 +1,21 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from fastapi import UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
+
+
+@dataclass
+class SourceInfo:
+    """Information about a source chunk used in a RAG response."""
+
+    filename: str
+    doc_id: str
+    excerpt: str
+    page: int | None = field(default=None)
 
 
 class AbstractFileStorageService(ABC):
@@ -38,7 +49,12 @@ class AbstractRAGService(ABC):
     async def initialize(self) -> None: ...
 
     @abstractmethod
-    async def query(self, question: str, user_id: UUID) -> tuple[str, str]: ...
+    async def query(
+        self,
+        question: str,
+        user_id: UUID,
+        history: list[dict[str, str]] | None = None,
+    ) -> tuple[str, str, list[SourceInfo]]: ...
 
 
 class AbstractDocumentService(ABC):

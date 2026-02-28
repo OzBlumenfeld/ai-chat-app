@@ -136,7 +136,7 @@ class TestResponseStructure:
     """Tests for API response structure and validation."""
 
     def test_response_contains_required_fields(self, client, auth_header):
-        """Response should contain answer and source fields."""
+        """Response should contain answer, source, and sources fields."""
         response = client.post(
             "/query",
             json={"question": "Who is Oz Blumenfeld?"},
@@ -148,7 +148,9 @@ class TestResponseStructure:
 
         assert "answer" in data, "Response should contain 'answer' field"
         assert "source" in data, "Response should contain 'source' field"
+        assert "sources" in data, "Response should contain 'sources' field"
         assert isinstance(data["answer"], str)
+        assert isinstance(data["sources"], list)
         assert data["source"] in ["rag", "llm"], f"Source should be 'rag' or 'llm', got: {data['source']}"
 
     def test_invalid_request_missing_question(self, client, auth_header):
