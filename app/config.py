@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
 
+    # Email (Gmail SMTP)
+    GMAIL_SENDER_EMAIL: str = ""
+    GMAIL_APP_PASSWORD: str = ""
+    GMAIL_SMTP_SERVER: str = "smtp.gmail.com"
+    GMAIL_SMTP_PORT: int = 587
+
     # Logging
     LOG_LEVEL: str
 

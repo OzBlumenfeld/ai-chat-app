@@ -78,3 +78,14 @@ class MonthGroup(BaseModel):
 
 class RequestHistoryGroupedResponse(BaseModel):
     groups: list[MonthGroup]
+
+
+class SendEmailRequest(BaseModel):
+    recipient_email: EmailStr
+    subject: str
+    body: str
+
+
+class SendEmailResponse(BaseModel):
+    success: bool
+    message: str
