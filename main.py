@@ -10,6 +10,7 @@ from app.logging_config import setup_logging
 from app.routes import (
     auth_routes,
     document_routes,
+    email_routes,
     query_routes,
     request_history_routes,
 )
@@ -69,6 +70,7 @@ app.include_router(auth_routes.router)
 app.include_router(query_routes.router)
 app.include_router(document_routes.router)
 app.include_router(request_history_routes.router)
+app.include_router(email_routes.router)
 
 
 @app.get("/")
