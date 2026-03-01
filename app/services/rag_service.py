@@ -5,6 +5,8 @@ import chromadb
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_ollama import OllamaLLM
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.language_models import BaseLanguageModel
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import Runnable
@@ -27,13 +29,13 @@ Answer:"""
 
 
 class RAGService(AbstractRAGService):
-    """Concrete RAG service backed by ChromaDB, HuggingFace embeddings, and Ollama."""
+    """Concrete RAG service backed by ChromaDB, HuggingFace embeddings, and Ollama or Gemini."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         self._chroma_client: chromadb.ClientAPI | None = None
         self._embeddings: HuggingFaceEmbeddings | None = None
-        self._llm: OllamaLLM | None = None
+        self._llm: BaseLanguageModel | None = None
         self._rag_chain: Runnable | None = None
 
     @property
@@ -55,11 +57,18 @@ class RAGService(AbstractRAGService):
         )
         logger.info("Successfully connected to ChromaDB.")
 
-        logger.info("Loading LLM: '%s' from Ollama...", self._settings.LLM_MODEL_NAME)
-        self._llm = OllamaLLM(
-            model=self._settings.LLM_MODEL_NAME,
-            base_url=self._settings.OLLAMA_BASE_URL,
-        )
+        if self._settings.LLM_MODE == "gemini":
+            logger.info("Loading Gemini model: '%s'...", self._settings.GEMINI_MODEL)
+            self._llm = ChatGoogleGenerativeAI(
+                model=self._settings.GEMINI_MODEL,
+                google_api_key=self._settings.GEMINI_API_KEY,
+            )
+        else:
+            logger.info("Loading LLM: '%s' from Ollama...", self._settings.LLM_MODEL_NAME)
+            self._llm = OllamaLLM(
+                model=self._settings.LLM_MODEL_NAME,
+                base_url=self._settings.OLLAMA_BASE_URL,
+            )
         logger.info("LLM loaded successfully.")
 
         prompt = PromptTemplate.from_template(_PROMPT_TEMPLATE)

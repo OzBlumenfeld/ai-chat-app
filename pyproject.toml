@@ -30,6 +30,7 @@ dependencies = [
     "redis>=7.2.0",
     "fastapi-limiter>=0.2.0",
     "uuid6>=2025.0.1",
+    "langchain-google-genai>=4.2.1",
 ]
 
 [dependency-groups]

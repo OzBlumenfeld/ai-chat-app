@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     GMAIL_SMTP_SERVER: str = "smtp.gmail.com"
     GMAIL_SMTP_PORT: int = 587
 
+    # Gemini settings (used when LLM_MODE="gemini")
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.0-flash"
+
     # Logging
     LOG_LEVEL: str
 
