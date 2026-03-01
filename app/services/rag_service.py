@@ -44,36 +44,36 @@ class RAGService(AbstractRAGService):
 
     async def initialize(self) -> None:
         """Called once during app startup."""
-        logger.info("Initializing RAG chain...")
+        logger.info("Initializing RAG chain")
 
-        logger.info("Loading embedding model: '%s'...", self._settings.EMBEDDING_MODEL_NAME)
+        logger.info("Loading embedding model", extra={"model": self._settings.EMBEDDING_MODEL_NAME})
         self._embeddings = HuggingFaceEmbeddings(
             model_name=self._settings.EMBEDDING_MODEL_NAME
         )
 
-        logger.info("Connecting to ChromaDB at %s:%s...", self._settings.CHROMA_HOST, self._settings.CHROMA_PORT)
+        logger.info("Connecting to ChromaDB", extra={"host": self._settings.CHROMA_HOST, "port": self._settings.CHROMA_PORT})
         self._chroma_client = chromadb.HttpClient(
             host=self._settings.CHROMA_HOST, port=int(self._settings.CHROMA_PORT)
         )
-        logger.info("Successfully connected to ChromaDB.")
+        logger.info("Connected to ChromaDB")
 
         if self._settings.LLM_MODE == "gemini":
-            logger.info("Loading Gemini model: '%s'...", self._settings.GEMINI_MODEL)
+            logger.info("Loading Gemini model", extra={"model": self._settings.GEMINI_MODEL})
             self._llm = ChatGoogleGenerativeAI(
                 model=self._settings.GEMINI_MODEL,
                 google_api_key=self._settings.GEMINI_API_KEY,
             )
         else:
-            logger.info("Loading LLM: '%s' from Ollama...", self._settings.LLM_MODEL_NAME)
+            logger.info("Loading Ollama LLM", extra={"model": self._settings.LLM_MODEL_NAME})
             self._llm = OllamaLLM(
                 model=self._settings.LLM_MODEL_NAME,
                 base_url=self._settings.OLLAMA_BASE_URL,
             )
-        logger.info("LLM loaded successfully.")
+        logger.info("LLM loaded successfully")
 
         prompt = PromptTemplate.from_template(_PROMPT_TEMPLATE)
         self._rag_chain = prompt | self._llm | StrOutputParser()
-        logger.info("RAG chain initialized successfully.")
+        logger.info("RAG chain initialized successfully")
 
     async def query(self, question: str, user_id: UUID) -> tuple[str, str]:
         """
@@ -91,8 +91,8 @@ class RAGService(AbstractRAGService):
         if relevant_docs:
             best_score = min(score for _, score in relevant_docs)
             logger.debug(
-                "Found %d relevant documents (best score: %.3f). Using RAG.",
-                len(relevant_docs), best_score,
+                "Relevant documents found, using RAG",
+                extra={"count": len(relevant_docs), "best_score": round(best_score, 3)},
             )
             context = "\n\n".join(doc.page_content for doc, _ in relevant_docs)
             answer = await self._rag_chain.ainvoke(
@@ -103,11 +103,11 @@ class RAGService(AbstractRAGService):
         if docs_with_scores:
             best_score = min(score for _, score in docs_with_scores)
             logger.debug(
-                "No relevant documents (best score: %.3f > threshold %s). Using LLM directly.",
-                best_score, self._settings.SIMILARITY_THRESHOLD,
+                "No relevant documents above threshold, using LLM directly",
+                extra={"best_score": round(best_score, 3), "threshold": self._settings.SIMILARITY_THRESHOLD},
             )
         else:
-            logger.debug("No documents in store. Using LLM directly.")
+            logger.debug("No documents in store, using LLM directly")
 
         answer = await self._llm.ainvoke(question)
         return answer, "llm"
