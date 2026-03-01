@@ -40,8 +40,8 @@ class Settings(BaseSettings):
     GMAIL_SMTP_PORT: int = 587
 
     # Gemini settings (used when LLM_MODE="gemini")
-    GEMINI_API_KEY: str
-    GEMINI_MODEL: str
+    GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = ""
 
     # Logging
     LOG_LEVEL: str

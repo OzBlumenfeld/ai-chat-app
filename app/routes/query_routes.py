@@ -8,7 +8,7 @@ from app.auth import get_current_user
 from app.database import get_session
 from app.models import Request as RequestLog
 from app.rate_limit import query_rate_limiter
-from app.schemas import QueryRequest, QueryResponse
+from app.schemas import QueryRequest, QueryResponse, SourceCitation
 from app.services.rag_service import rag_service
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,10 @@ async def query_model(
         )
 
     try:
-        answer, source = await rag_service.query(request.question, current_user["user_id"])
+        history = [{"role": m.role, "content": m.content} for m in request.history]
+        answer, source, source_infos = await rag_service.query(
+            request.question, current_user["user_id"], history=history
+        )
 
         session.add(RequestLog(
             user_id=current_user["user_id"],
@@ -39,7 +42,16 @@ async def query_model(
         ))
         await session.commit()
 
-        return QueryResponse(answer=answer, source=source)
+        citations = [
+            SourceCitation(
+                filename=s.filename,
+                doc_id=s.doc_id,
+                excerpt=s.excerpt,
+                page=s.page,
+            )
+            for s in source_infos
+        ]
+        return QueryResponse(answer=answer, source=source, sources=citations)
     except HTTPException:
         raise
     except Exception as e:

@@ -40,7 +40,7 @@ class DocumentService(AbstractDocumentService):
         self._settings = settings
         self._file_storage = file_storage
         self._text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000, chunk_overlap=200
+            chunk_size=1500, chunk_overlap=300
         )
         self._chroma_client: chromadb.HttpClient | None = None
         self._embeddings: HuggingFaceEmbeddings | None = None
@@ -113,6 +113,15 @@ class DocumentService(AbstractDocumentService):
 
             if not splits:
                 raise ValueError("No text chunks created from file")
+
+            # Enrich each chunk with doc_id and clean filename for citation
+            for split in splits:
+                split.metadata["doc_id"] = str(document.id)
+                split.metadata["filename"] = file.filename or "unknown"
+                # Replace temp file paths from PyPDFLoader with the original name
+                src = split.metadata.get("source", "")
+                if src.startswith("/tmp") or src.startswith("/var"):
+                    split.metadata["source"] = file.filename or "unknown"
 
             collection_name = self._get_user_collection_name(user_id)
             ids = [f"{document.id}_{idx}" for idx in range(len(splits))]
