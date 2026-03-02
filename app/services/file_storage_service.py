@@ -32,14 +32,14 @@ class FileStorageService(AbstractFileStorageService):
         file_path = dir_path / unique_filename
         file_path.write_bytes(content)
 
-        logger.debug("Saved file: %s", file_path.relative_to(self._root))
+        logger.debug("Saved file", extra={"path": str(file_path.relative_to(self._root))})
         return str(file_path.relative_to(self._root))
 
     def read(self, file_path: str) -> bytes:
         """Read content from a relative path under the storage root."""
         full_path = self._root / file_path
         if not full_path.exists():
-            logger.error("File not found: %s", file_path)
+            logger.error("File not found", extra={"path": file_path})
             raise FileNotFoundError(f"File not found: {file_path}")
         return full_path.read_bytes()
 

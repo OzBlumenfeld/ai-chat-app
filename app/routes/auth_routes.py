@@ -19,9 +19,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def register(
     body: RegisterRequest, session: AsyncSession = Depends(get_session)
 ) -> AuthResponse:
-    result = await session.execute(select(User).where(User.email == body.email))
-    if result.scalar_one_or_none():
-        logger.warning("Registration attempt with existing email: %s", body.email)
+    logger.info("Register new user", extra={"email": body.email})
+    existing = await session.scalar(select(User).where(User.email == body.email))
+    if existing:
+        logger.warning("Registration attempt with existing email", extra={"email": body.email})
         raise HTTPException(status_code=409, detail="Email already registered")
 
     user = User(email=body.email, password_hash=auth_service.hash_password(body.password))
@@ -29,7 +30,7 @@ async def register(
     await session.commit()
     await session.refresh(user)
 
-    logger.info("User registered: %s", user.email)
+    logger.info("User registered", extra={"email": user.email})
     return AuthResponse(token=auth_service.create_token(user.id, user.email), email=user.email)
 
 
@@ -37,11 +38,10 @@ async def register(
 async def login(
     body: LoginRequest, session: AsyncSession = Depends(get_session)
 ) -> AuthResponse:
-    result = await session.execute(select(User).where(User.email == body.email))
-    user = result.scalar_one_or_none()
+    user = await session.scalar(select(User).where(User.email == body.email))
 
     if not user or not auth_service.verify_password(body.password, user.password_hash):
-        logger.warning("Failed login attempt for email: %s", body.email)
+        logger.warning("Failed login attempt", extra={"email": body.email})
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     return AuthResponse(token=auth_service.create_token(user.id, user.email), email=user.email)

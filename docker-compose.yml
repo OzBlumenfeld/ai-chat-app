@@ -81,6 +81,17 @@ services:
       timeout: 3s
       retries: 5
 
+  redis-ui:
+    image: redisinsight/redisinsight:latest
+    container_name: redis_ui
+    depends_on:
+      - redis
+    ports:
+      - "5540:5540"
+    networks:
+      - docker-network
+    restart: always
+
 networks:
   docker-network:
     driver: bridge

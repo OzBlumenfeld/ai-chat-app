@@ -47,10 +47,12 @@ class RAGService(AbstractRAGService):
         logger.info("Initializing RAG chain")
 
         logger.info("Loading embedding model", extra={"model": self._settings.EMBEDDING_MODEL_NAME})
+        logger.info("Loading embedding model", extra={"model": self._settings.EMBEDDING_MODEL_NAME})
         self._embeddings = HuggingFaceEmbeddings(
             model_name=self._settings.EMBEDDING_MODEL_NAME
         )
 
+        logger.info("Connecting to ChromaDB", extra={"host": self._settings.CHROMA_HOST, "port": self._settings.CHROMA_PORT})
         logger.info("Connecting to ChromaDB", extra={"host": self._settings.CHROMA_HOST, "port": self._settings.CHROMA_PORT})
         self._chroma_client = chromadb.HttpClient(
             host=self._settings.CHROMA_HOST, port=int(self._settings.CHROMA_PORT)

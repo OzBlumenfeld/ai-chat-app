@@ -55,5 +55,5 @@ async def query_model(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Error during query processing: %s", e)
+        logger.error("Error during query processing", extra={"error": str(e)})
         raise HTTPException(status_code=500, detail="Failed to process the query.")

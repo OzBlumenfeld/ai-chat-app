@@ -79,7 +79,7 @@ class DocumentService(AbstractDocumentService):
         session: AsyncSession,
     ) -> Document:
         """Process an uploaded document (PDF or TXT) and add to user's ChromaDB collection."""
-        logger.info("Processing document '%s' for user %s", file.filename, user_id)
+        logger.info("Processing document", extra={"doc_filename": file.filename, "user_id": str(user_id)})
         document = Document(
             user_id=user_id,
             original_filename=file.filename,
@@ -138,15 +138,12 @@ class DocumentService(AbstractDocumentService):
             document.status = "ready"
             document.error_message = None
 
-            logger.info(
-                "Document '%s' processed: %d chunks created",
-                file.filename, len(splits),
-            )
+            logger.info("Document processed", extra={"doc_filename": file.filename, "chunks": len(splits)})
             await session.commit()
             return document
 
         except Exception as e:
-            logger.error("Failed to process document '%s': %s", file.filename, e)
+            logger.error("Failed to process document", extra={"doc_filename": file.filename, "error": str(e)})
             document.status = "failed"
             document.error_message = str(e)
             await session.commit()
@@ -183,7 +180,7 @@ class DocumentService(AbstractDocumentService):
             if doc_ids:
                 collection.delete(ids=doc_ids)
         except Exception as e:
-            logger.warning("Failed to delete vectors from ChromaDB: %s", e)
+            logger.warning("Failed to delete vectors from ChromaDB", extra={"error": str(e)})
 
         await session.delete(document)
         await session.commit()

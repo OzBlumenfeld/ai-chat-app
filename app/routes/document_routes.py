@@ -55,10 +55,10 @@ async def upload_documents(
                 )
             )
         except DocumentValidationError as e:
-            logger.warning("Validation failed for '%s': %s", file.filename, e)
+            logger.warning("Validation failed", extra={"doc_filename": file.filename, "error": str(e)})
             errors.append(f"{file.filename}: {str(e)}")
         except Exception as e:
-            logger.error("Failed to process '%s': %s", file.filename, e)
+            logger.error("Failed to process file", extra={"doc_filename": file.filename, "error": str(e)})
             errors.append(f"{file.filename}: {str(e)}")
 
     return UploadResponse(uploaded=uploaded, errors=errors)

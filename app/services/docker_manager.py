@@ -34,7 +34,7 @@ class DockerManager:
             return True
 
         try:
-            logger.info(f"Starting docker-compose services from {self.docker_compose_path}...")
+            logger.info("Starting docker-compose services", extra={"path": self.docker_compose_path})
             result = await self._run_command(
                 [
                     "docker-compose",
@@ -53,7 +53,7 @@ class DockerManager:
                 logger.error("Failed to start docker-compose services")
                 return False
         except Exception as e:
-            logger.error(f"Error starting docker-compose: {e}")
+            logger.error("Error starting docker-compose", extra={"error": str(e)})
             return False
 
     async def stop(self) -> bool:
@@ -86,7 +86,7 @@ class DockerManager:
                 logger.error("Failed to stop docker-compose services")
                 return False
         except Exception as e:
-            logger.error(f"Error stopping docker-compose: {e}")
+            logger.error("Error stopping docker-compose", extra={"error": str(e)})
             return False
 
     async def is_running(self) -> bool:
@@ -113,7 +113,7 @@ class DockerManager:
             )
             return result
         except Exception as e:
-            logger.error(f"Error checking docker-compose status: {e}")
+            logger.error("Error checking docker-compose status", extra={"error": str(e)})
             return False
 
     async def _run_command(self, command: list[str]) -> bool:
@@ -139,7 +139,7 @@ class DockerManager:
 
             if process.returncode != 0:
                 error_msg = stderr.decode() if stderr else "Unknown error"
-                logger.error(f"Command failed: {' '.join(command)}\nError: {error_msg}")
+                logger.error("Command failed", extra={"command": " ".join(command), "error": error_msg})
                 return False
 
             return True

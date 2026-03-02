@@ -33,13 +33,8 @@ class QueuedEmailNotificationSender(NotificationSender):
                 subject=notification_input.subject,
                 body=notification_input.body,
             )
-            logger.info(
-                f"Email task enqueued (task_id={task.id}) to {notification_input.recipient_email}"
-            )
+            logger.info("Email task enqueued", extra={"task_id": task.id, "recipient": notification_input.recipient_email})
             return True
         except Exception as e:
-            logger.error(
-                f"Failed to enqueue email to {notification_input.recipient_email}: {e}",
-                exc_info=True,
-            )
+            logger.error("Failed to enqueue email", extra={"recipient": notification_input.recipient_email, "error": str(e)}, exc_info=True)
             return False

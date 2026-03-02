@@ -44,8 +44,8 @@ class EmailNotificationSender(NotificationSender):
                     message.as_string(),
                 )
 
-            logger.info(f"Email sent successfully to {notification_input.recipient_email}")
+            logger.info("Email sent successfully", extra={"recipient": notification_input.recipient_email})
             return True
         except Exception as e:
-            logger.error(f"Failed to send email to {notification_input.recipient_email}: {e}")
+            logger.error("Failed to send email", extra={"recipient": notification_input.recipient_email, "error": str(e)})
             return False
