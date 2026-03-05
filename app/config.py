@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     CHROMA_PORT: str
     COLLECTION_NAME: str
     EMBEDDING_MODEL_NAME: str
-    LLM_MODEL_NAME: str
+    LLM_MODEL_NAME: str = ""
     OLLAMA_BASE_URL: str
     SIMILARITY_THRESHOLD: float
 

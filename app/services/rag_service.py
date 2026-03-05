@@ -132,6 +132,7 @@ class RAGService(AbstractRAGService):
         answer = await self._direct_chain.ainvoke(
             {"question": question, "history": history_msgs}
         )
+
         return answer, "llm", []
 
     def _get_user_vectorstore(self, user_id: UUID) -> Chroma:
