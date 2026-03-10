@@ -31,6 +31,9 @@ dependencies = [
     "fastapi-limiter>=0.2.0",
     "uuid6>=2025.0.1",
     "langchain-google-genai>=4.2.1",
+    "mcp>=1.26.0",
+    "langchain-mcp-adapters>=0.2.1",
+    "langgraph>=0.2.0"
 ]
 
 [dependency-groups]
@@ -46,3 +49,6 @@ markers = [
     "email_integration: mark test as requiring email integration (requires Gmail credentials)",
     "integration: mark test as an integration test requiring the full stack (ChromaDB, Ollama, Postgres)",
 ]
+
+[tool.uv]
+workspace = { members = ["mcp_server"] }

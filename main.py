@@ -1,7 +1,7 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
@@ -58,9 +58,23 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+@app.middleware("http")
+async def log_origin(request: Request, call_next):
+    origin = request.headers.get("origin")
+    if origin:
+        logger.info(f"Incoming request from origin: {origin} | Method: {request.method} | Path: {request.url.path}")
+    return await call_next(request)
+
+allowed_origins = [
+    settings.FRONTEND_ORIGIN,
+    settings.FRONTEND_ORIGIN.replace("localhost", "127.0.0.1"),
+    settings.FRONTEND_ORIGIN.replace("127.0.0.1", "localhost"),
+]
+logger.info(f"CORS Allowed Origins: {allowed_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.FRONTEND_ORIGIN],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

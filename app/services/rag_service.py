@@ -9,8 +9,9 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage, BaseMessage
-from langchain_core.output_parsers import StrOutputParser
+from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
 from langchain_core.runnables import Runnable
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from app.config import Settings
 from app.services.interfaces import AbstractRAGService, SourceInfo
@@ -22,9 +23,18 @@ If the answer is not in the context, say that you don't know based on the availa
 Do not make up information.
 
 Context from documents:
-{context}"""
+{context}
 
-_DIRECT_SYSTEM_PROMPT = "You are a helpful assistant."
+You have access to tools for math and email. 
+When a tool returns a result, just inform the user of that result concisely. 
+DO NOT mention or call any tools that are not explicitly provided to you (e.g., do NOT mention 'get_email_body').
+"""
+
+_DIRECT_SYSTEM_PROMPT = """You are a helpful assistant.
+You have access to tools for math and email.
+When a tool returns a result, just inform the user of that result concisely.
+DO NOT mention or call any tools that are not explicitly provided to you (e.g., do NOT mention 'get_email_body').
+"""
 
 
 class RAGService(AbstractRAGService):
@@ -37,6 +47,7 @@ class RAGService(AbstractRAGService):
         self._llm: BaseChatModel | None = None
         self._rag_chain: Runnable | None = None
         self._direct_chain: Runnable | None = None
+        self._mcp_client: MultiServerMCPClient | None = None
 
     @property
     def is_ready(self) -> bool:
@@ -47,12 +58,10 @@ class RAGService(AbstractRAGService):
         logger.info("Initializing RAG chain")
 
         logger.info("Loading embedding model", extra={"model": self._settings.EMBEDDING_MODEL_NAME})
-        logger.info("Loading embedding model", extra={"model": self._settings.EMBEDDING_MODEL_NAME})
         self._embeddings = HuggingFaceEmbeddings(
             model_name=self._settings.EMBEDDING_MODEL_NAME
         )
 
-        logger.info("Connecting to ChromaDB", extra={"host": self._settings.CHROMA_HOST, "port": self._settings.CHROMA_PORT})
         logger.info("Connecting to ChromaDB", extra={"host": self._settings.CHROMA_HOST, "port": self._settings.CHROMA_PORT})
         self._chroma_client = chromadb.HttpClient(
             host=self._settings.CHROMA_HOST, port=int(self._settings.CHROMA_PORT)
@@ -73,20 +82,49 @@ class RAGService(AbstractRAGService):
             )
         logger.info("LLM loaded successfully")
 
+# --- MCP INTEGRATION START ---
+        logger.info("Connecting to MCP Server via SSE")
+        mcp_tools = [] # Initialize as empty list
+        try:
+            self._mcp_client = MultiServerMCPClient({
+                "assistant": {
+                    "url": "http://127.0.0.1:9005/sse",
+                    "transport": "sse"
+                }
+            })
+            mcp_tools = await self._mcp_client.get_tools()
+            logger.info("Successfully loaded tools from MCP", extra={"tools_count" : len(mcp_tools), "tools": [t.name for t in mcp_tools]})
+        except Exception as e:
+            logger.error(f"Failed to load MCP tools: {e}. Proceeding without tools.")
+        # --- MCP INTEGRATION END ---
+
+        # 2. Define the Agent Prompts
         rag_prompt = ChatPromptTemplate.from_messages([
             ("system", _RAG_SYSTEM_PROMPT),
             MessagesPlaceholder(variable_name="history", optional=True),
             ("human", "{question}"),
+            ("human", "Context: {context}"), # Pass context here
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
+
         direct_prompt = ChatPromptTemplate.from_messages([
             ("system", _DIRECT_SYSTEM_PROMPT),
             MessagesPlaceholder(variable_name="history", optional=True),
             ("human", "{question}"),
+            MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
-        parser = StrOutputParser()
-        self._rag_chain = rag_prompt | self._llm | parser
-        self._direct_chain = direct_prompt | self._llm | parser
-        logger.info("RAG chain initialized successfully")
+
+        # 3. Create the Agents
+        # By passing mcp_tools (even if empty), the agent won't crash
+        rag_agent_runnable = create_tool_calling_agent(self._llm, mcp_tools, rag_prompt)
+        direct_agent_runnable = create_tool_calling_agent(self._llm, mcp_tools, direct_prompt)
+
+        # 4. Wrap in Executors
+        self._rag_executor = AgentExecutor(agent=rag_agent_runnable, tools=mcp_tools, verbose=True)
+        self._direct_executor = AgentExecutor(agent=direct_agent_runnable, tools=mcp_tools, verbose=True)
+
+        logger.info("RAG Agent Executor initialized successfully") 
+
 
     async def query(
         self,
@@ -108,33 +146,28 @@ class RAGService(AbstractRAGService):
         ]
 
         if relevant_docs:
-            best_score = min(score for _, score in relevant_docs)
-            logger.debug(
-                "Relevant documents found, using RAG",
-                extra={"count": len(relevant_docs), "best_score": round(best_score, 3)},
-            )
             context = "\n\n".join(doc.page_content for doc, _ in relevant_docs)
-            answer = await self._rag_chain.ainvoke(
-                {"context": context, "question": question, "history": history_msgs}
-            )
+            
+            # Use the Executor instead of a simple chain
+            result = await self._rag_executor.ainvoke({
+                "question": question,
+                "context": context,
+                "history": history_msgs
+            })
+            
+            answer = result["output"] # AgentExecutor puts the final text here
             sources = [self._make_source(doc) for doc, _ in relevant_docs]
             return answer, "rag", sources
 
-        if docs_with_scores:
-            best_score = min(score for _, score in docs_with_scores)
-            logger.debug(
-                "No relevant documents above threshold, using LLM directly",
-                extra={"best_score": round(best_score, 3), "threshold": self._settings.SIMILARITY_THRESHOLD},
-            )
-        else:
-            logger.debug("No documents in store, using LLM directly")
+        # Fallback to direct executor
+        result = await self._direct_executor.ainvoke({
+            "question": question,
+            "history": history_msgs
+        })
+        
+        return result["output"], "llm", []
 
-        answer = await self._direct_chain.ainvoke(
-            {"question": question, "history": history_msgs}
-        )
-
-        return answer, "llm", []
-
+        
     def _get_user_vectorstore(self, user_id: UUID) -> Chroma:
         """Get or create a vectorstore for a user's documents."""
         collection_name = f"user_{user_id}"

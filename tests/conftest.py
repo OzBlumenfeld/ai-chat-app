@@ -37,6 +37,12 @@ def auth_client():
     )
     TestSession = async_sessionmaker(test_engine, expire_on_commit=False)
 
+    # SQLite does not support schemas. Set schema to None so queries work without schema prefix.
+    original_schema = Base.metadata.schema
+    Base.metadata.schema = None
+    for table in Base.metadata.tables.values():
+        table.schema = None
+
     loop = asyncio.new_event_loop()
     loop.run_until_complete(_create_tables(test_engine))
 
@@ -46,6 +52,7 @@ def auth_client():
 
     with (
         patch("main.engine", test_engine),
+        patch("app.database.Base.metadata.create_all", return_value=None),
         patch("app.services.rag_service.rag_service.initialize", new_callable=AsyncMock),
         patch("app.services.document_service.document_service.initialize", new_callable=AsyncMock),
     ):
@@ -70,6 +77,10 @@ def auth_client():
 
         app.dependency_overrides.clear()
 
+    # Restore original schema
+    Base.metadata.schema = original_schema
+    for table in Base.metadata.tables.values():
+        table.schema = original_schema
     loop.run_until_complete(test_engine.dispose())
     loop.close()
 

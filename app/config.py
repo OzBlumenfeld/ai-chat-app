@@ -1,8 +1,18 @@
+import os
+import httpx
+import json
+from typing import Any
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from dotenv import load_dotenv
 
+load_dotenv()
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    # Bootstrap settings for Params Store
+    PARAMS_STORE_URL: str
+    APP_NAME: str
 
     DATABASE_URL: str
     JWT_SECRET: str
@@ -50,6 +60,36 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int
     MAX_FILES_PER_UPLOAD: int
     ALLOWED_EXTENSIONS: list[str]
+
+    def __init__(self, **values: Any) -> None:
+        # 1. Start with initial values
+        merged_values: dict[str, Any] = dict(values)
+
+        # 2. Get bootstrap settings from environment to find Params Store
+        params_store_url = os.environ.get("PARAMS_STORE_URL")
+
+        if params_store_url:
+            try:
+                response = httpx.get(f"{params_store_url}", timeout=5.0)
+                if response.status_code == 200:
+                    remote_settings = response.json()
+                    # Only add if not already passed in explicitly
+                    for key, value in remote_settings.items():
+                        if key not in merged_values:
+                            # If the value is a string and should be a list, parse it
+                            if isinstance(value, str) and (value.startswith("[") or value.startswith("{")):
+                                try:
+                                    value = json.loads(value)
+                                except Exception:
+                                    pass
+                            merged_values[key] = value
+                else:
+                    print(f"Warning: Params Store returned status {response.status_code}")
+            except Exception as e:
+                print(f"Warning: Could not fetch settings from Params Store: {e}")
+
+        # 3. Initialize with merged values - Pydantic handles type conversion for basic types
+        super().__init__(**merged_values)
 
 
 settings = Settings()
