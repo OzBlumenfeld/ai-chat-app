@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     FRONTEND_ORIGIN: str
 
     # LLM Mode and Docker settings
+    # Options: "local" (Mac — uses local Ollama at localhost:11434),
+    #          "docker" (uses dockerized Ollama at ollama:11434),
+    #          "gemini" (uses Google Gemini API)
     LLM_MODE: str
     DOCKER_COMPOSE_PATH: str
     DOCKER_COMPOSE_PROJECT: str
@@ -31,7 +34,7 @@ class Settings(BaseSettings):
     COLLECTION_NAME: str
     EMBEDDING_MODEL_NAME: str
     LLM_MODEL_NAME: str = ""
-    OLLAMA_BASE_URL: str
+    OLLAMA_BASE_URL: str = ""
     SIMILARITY_THRESHOLD: float
 
     # File storage
@@ -88,7 +91,17 @@ class Settings(BaseSettings):
             except Exception as e:
                 print(f"Warning: Could not fetch settings from Params Store: {e}")
 
-        # 3. Initialize with merged values - Pydantic handles type conversion for basic types
+        # 3. Auto-derive OLLAMA_BASE_URL from LLM_MODE if not explicitly set.
+        #    local  → http://localhost:11434
+        #    docker → http://ollama:11434
+        if "OLLAMA_BASE_URL" not in merged_values and not os.environ.get("OLLAMA_BASE_URL"):
+            llm_mode = merged_values.get("LLM_MODE") or os.environ.get("LLM_MODE", "docker")
+            if llm_mode == "local":
+                merged_values["OLLAMA_BASE_URL"] = "http://localhost:11434"
+            elif llm_mode != "gemini":
+                merged_values["OLLAMA_BASE_URL"] = "http://ollama:11434"
+
+        # 4. Initialize with merged values - Pydantic handles type conversion for basic types
         super().__init__(**merged_values)
 
 
