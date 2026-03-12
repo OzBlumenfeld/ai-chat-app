@@ -83,6 +83,11 @@ class AbstractDocumentService(ABC):
     ) -> None: ...
 
     @abstractmethod
+    async def delete_all_documents(
+        self, user_id: UUID, session: AsyncSession
+    ) -> int: ...
+
+    @abstractmethod
     def validate_file(self, file: UploadFile) -> None: ...
 
 

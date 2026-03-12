@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 import tempfile
 import uuid
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -18,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.models.document import Document
+from app.models.user import Request
 from app.services.interfaces import AbstractDocumentService
 
 if TYPE_CHECKING:
@@ -40,7 +43,7 @@ class DocumentService(AbstractDocumentService):
         self._settings = settings
         self._file_storage = file_storage
         self._text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1500, chunk_overlap=300
+            chunk_size=600, chunk_overlap=100
         )
         self._chroma_client: chromadb.HttpClient | None = None
         self._embeddings: HuggingFaceEmbeddings | None = None
@@ -184,6 +187,79 @@ class DocumentService(AbstractDocumentService):
 
         await session.delete(document)
         await session.commit()
+
+    async def delete_all_documents(
+        self, user_id: uuid.UUID, session: AsyncSession
+    ) -> int:
+        """Delete all documents for a user and their entire ChromaDB collection.
+
+        Also exports and deletes all user requests to deleted_users/{user_id}/requests.json.
+        """
+        collection_name = self._get_user_collection_name(user_id)
+
+        # Export and delete user requests
+        await self._export_and_delete_requests(user_id, session)
+
+        # Delete the entire ChromaDB collection for this user
+        try:
+            self._chroma_client.delete_collection(name=collection_name)
+            logger.info("Deleted ChromaDB collection", extra={"collection": collection_name})
+        except Exception as e:
+            logger.warning("Failed to delete ChromaDB collection", extra={"collection": collection_name, "error": str(e)})
+
+        # Delete all document records from PostgreSQL
+        query = select(Document).where(Document.user_id == user_id)
+        result = await session.execute(query)
+        documents = list(result.scalars().all())
+
+        count = len(documents)
+        for doc in documents:
+            await session.delete(doc)
+
+        await session.commit()
+        logger.info("Deleted all documents for user", extra={"user_id": str(user_id), "count": count})
+
+        return count
+
+    async def _export_and_delete_requests(
+        self, user_id: uuid.UUID, session: AsyncSession
+    ) -> None:
+        """Export user requests to JSON and delete them from the database."""
+        # Fetch all requests for the user
+        query = select(Request).where(Request.user_id == user_id).order_by(Request.created_at)
+        result = await session.execute(query)
+        requests = list(result.scalars().all())
+
+        if not requests:
+            logger.info("No requests to export", extra={"user_id": str(user_id)})
+            return
+
+        # Prepare export data
+        export_data = [
+            {
+                "id": str(req.id),
+                "question": req.question,
+                "answer": req.answer,
+                "source": req.source,
+                "created_at": req.created_at.isoformat() if isinstance(req.created_at, datetime) else str(req.created_at),
+            }
+            for req in requests
+        ]
+
+        # Save to deleted_users/{user_id}/requests.json
+        export_dir = self._file_storage._root / "deleted_users" / str(user_id)
+        export_dir.mkdir(parents=True, exist_ok=True)
+
+        export_file = export_dir / "requests.json"
+        export_file.write_text(json.dumps(export_data, indent=2, ensure_ascii=False))
+
+        logger.info("Exported user requests", extra={"user_id": str(user_id), "count": len(requests), "path": str(export_file)})
+
+        # Delete all requests from the database
+        for req in requests:
+            await session.delete(req)
+
+        logger.info("Deleted user requests from DB", extra={"user_id": str(user_id), "count": len(requests)})
 
     @staticmethod
     def _get_user_collection_name(user_id: uuid.UUID) -> str:

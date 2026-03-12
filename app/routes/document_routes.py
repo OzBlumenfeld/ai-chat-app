@@ -100,6 +100,16 @@ async def delete_document(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.delete("")
+async def delete_all_documents(
+    current_user: dict[str, Any] = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, str | int]:
+    """Delete all documents for the current user and clear their ChromaDB collection."""
+    count = await document_service.delete_all_documents(current_user["user_id"], session)
+    return {"message": "All documents deleted successfully", "count": count}
+
+
 @router.get("/{doc_id}", response_model=DocumentResponse)
 async def get_document(
     doc_id: MaskedUUID,
