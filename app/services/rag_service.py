@@ -103,6 +103,7 @@ class RAGService(AbstractRAGService):
             ("system", _RAG_SYSTEM_PROMPT),
             MessagesPlaceholder(variable_name="history", optional=True),
             ("human", "{question}"),
+            ("human", "Context: {context}"), # Pass context here
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
 
@@ -137,27 +138,24 @@ class RAGService(AbstractRAGService):
         """
         history_msgs = self._build_history(history)
         vectorstore = self._get_user_vectorstore(user_id)
-        docs_with_scores = vectorstore.similarity_search_with_score(question, k=8)
-        # Filter by similarity threshold but keep at least the top result to avoid
-        # incorrectly falling back to LLM when documents exist but score is borderline.
+        docs_with_scores = vectorstore.similarity_search_with_score(question, k=4)
         relevant_docs = [
             (doc, score)
             for doc, score in docs_with_scores
             if score < self._settings.SIMILARITY_THRESHOLD
         ]
-        if not relevant_docs and docs_with_scores:
-            relevant_docs = [docs_with_scores[0]]
 
         if relevant_docs:
             context = "\n\n".join(doc.page_content for doc, _ in relevant_docs)
-
+            
+            # Use the Executor instead of a simple chain
             result = await self._rag_executor.ainvoke({
                 "question": question,
                 "context": context,
                 "history": history_msgs
             })
-
-            answer = result["output"]
+            
+            answer = result["output"] # AgentExecutor puts the final text here
             sources = [self._make_source(doc) for doc, _ in relevant_docs]
             return answer, "rag", sources
 

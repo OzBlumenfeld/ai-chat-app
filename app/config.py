@@ -65,8 +65,10 @@ class Settings(BaseSettings):
     ALLOWED_EXTENSIONS: list[str]
 
     def __init__(self, **values: Any) -> None:
+        # 1. Start with initial values
         merged_values: dict[str, Any] = dict(values)
 
+        # 2. Get bootstrap settings from environment to find Params Store
         params_store_url = os.environ.get("PARAMS_STORE_URL")
 
         if params_store_url:
@@ -89,6 +91,9 @@ class Settings(BaseSettings):
             except Exception as e:
                 print(f"Warning: Could not fetch settings from Params Store: {e}")
 
+        # 3. Auto-derive OLLAMA_BASE_URL from LLM_MODE if not explicitly set.
+        #    local  → http://localhost:11434
+        #    docker → http://ollama:11434
         if "OLLAMA_BASE_URL" not in merged_values and not os.environ.get("OLLAMA_BASE_URL"):
             llm_mode = merged_values.get("LLM_MODE") or os.environ.get("LLM_MODE", "docker")
             if llm_mode == "local":
@@ -96,6 +101,7 @@ class Settings(BaseSettings):
             elif llm_mode != "gemini":
                 merged_values["OLLAMA_BASE_URL"] = "http://ollama:11434"
 
+        # 4. Initialize with merged values - Pydantic handles type conversion for basic types
         super().__init__(**merged_values)
 
 
