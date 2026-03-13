@@ -29,9 +29,6 @@ class Settings(BaseSettings):
     DOCKER_COMPOSE_PROJECT: str
 
     # RAG / vector store
-    CHROMA_HOST: str
-    CHROMA_PORT: str
-    COLLECTION_NAME: str
     EMBEDDING_MODEL_NAME: str
     LLM_MODEL_NAME: str = ""
     OLLAMA_BASE_URL: str = ""
@@ -42,9 +39,6 @@ class Settings(BaseSettings):
 
     # UUID masking (AES-256 key as 64-char hex)
     UUID_MASK_KEY: str
-
-    # Redis
-    REDIS_URL: str = "redis://localhost:6379"
 
     # Email (Gmail SMTP)
     GMAIL_SENDER_EMAIL: str = ""
@@ -63,6 +57,11 @@ class Settings(BaseSettings):
     MAX_UPLOAD_SIZE: int
     MAX_FILES_PER_UPLOAD: int
     ALLOWED_EXTENSIONS: list[str]
+
+    @property
+    def pgvector_connection_string(self) -> str:
+        """Sync psycopg3 connection string for langchain_postgres.PGVector."""
+        return self.DATABASE_URL.replace("+asyncpg", "+psycopg")
 
     def __init__(self, **values: Any) -> None:
         merged_values: dict[str, Any] = dict(values)

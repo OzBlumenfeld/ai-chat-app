@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import tempfile
 import uuid
@@ -8,11 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-import chromadb
 from fastapi import UploadFile
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import Chroma
+from langchain_postgres import PGVector
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document as LangChainDocument
 from sqlalchemy import select
@@ -45,15 +45,13 @@ class DocumentService(AbstractDocumentService):
         self._text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=600, chunk_overlap=100
         )
-        self._chroma_client: chromadb.HttpClient | None = None
+        self._pgvector_connection: str | None = None
         self._embeddings: HuggingFaceEmbeddings | None = None
 
     async def initialize(self) -> None:
-        """Initialize ChromaDB client and embeddings."""
+        """Initialize pgvector connection and embeddings."""
         logger.info("Initializing DocumentService...")
-        self._chroma_client = chromadb.HttpClient(
-            host=self._settings.CHROMA_HOST, port=int(self._settings.CHROMA_PORT)
-        )
+        self._pgvector_connection = self._settings.pgvector_connection_string
         self._embeddings = HuggingFaceEmbeddings(
             model_name=self._settings.EMBEDDING_MODEL_NAME
         )
@@ -81,7 +79,7 @@ class DocumentService(AbstractDocumentService):
         user_email: str,
         session: AsyncSession,
     ) -> Document:
-        """Process an uploaded document (PDF or TXT) and add to user's ChromaDB collection."""
+        """Process an uploaded document (PDF or TXT) and add to user's pgvector collection."""
         logger.info("Processing document", extra={"doc_filename": file.filename, "user_id": str(user_id)})
         document = Document(
             user_id=user_id,
@@ -128,12 +126,18 @@ class DocumentService(AbstractDocumentService):
 
             collection_name = self._get_user_collection_name(user_id)
             ids = [f"{document.id}_{idx}" for idx in range(len(splits))]
-            Chroma.from_documents(
+
+            pgvector_connection = self._pgvector_connection
+            embeddings = self._embeddings
+
+            await asyncio.to_thread(
+                PGVector.from_documents,
                 documents=splits,
-                embedding=self._embeddings,
-                client=self._chroma_client,
+                embedding=embeddings,
                 collection_name=collection_name,
+                connection=pgvector_connection,
                 ids=ids,
+                pre_delete_collection=False,
             )
 
             document.file_size = len(content)
@@ -163,7 +167,7 @@ class DocumentService(AbstractDocumentService):
     async def delete_document(
         self, doc_id: uuid.UUID, user_id: uuid.UUID, session: AsyncSession
     ) -> None:
-        """Delete a document and its vectors from ChromaDB."""
+        """Delete a document and its vectors from pgvector."""
         query = select(Document).where(
             (Document.id == doc_id) & (Document.user_id == user_id)
         )
@@ -174,16 +178,20 @@ class DocumentService(AbstractDocumentService):
             raise ValueError("Document not found or unauthorized")
 
         collection_name = self._get_user_collection_name(user_id)
-        try:
-            collection = self._chroma_client.get_collection(name=collection_name)
-            doc_ids = [
-                f"{doc_id}_{idx}"
-                for idx in range(document.chunk_count or 0)
-            ]
-            if doc_ids:
-                collection.delete(ids=doc_ids)
-        except Exception as e:
-            logger.warning("Failed to delete vectors from ChromaDB", extra={"error": str(e)})
+        doc_ids = [
+            f"{doc_id}_{idx}"
+            for idx in range(document.chunk_count or 0)
+        ]
+        if doc_ids:
+            try:
+                vectorstore = PGVector(
+                    embeddings=self._embeddings,
+                    collection_name=collection_name,
+                    connection=self._pgvector_connection,
+                )
+                await asyncio.to_thread(vectorstore.delete, ids=doc_ids)
+            except Exception as e:
+                logger.warning("Failed to delete vectors from pgvector", extra={"error": str(e)})
 
         await session.delete(document)
         await session.commit()
@@ -191,7 +199,7 @@ class DocumentService(AbstractDocumentService):
     async def delete_all_documents(
         self, user_id: uuid.UUID, session: AsyncSession
     ) -> int:
-        """Delete all documents for a user and their entire ChromaDB collection.
+        """Delete all documents for a user and their entire pgvector collection.
 
         Also exports and deletes all user requests to deleted_users/{user_id}/requests.json.
         """
@@ -200,12 +208,17 @@ class DocumentService(AbstractDocumentService):
         # Export and delete user requests
         await self._export_and_delete_requests(user_id, session)
 
-        # Delete the entire ChromaDB collection for this user
+        # Delete the entire pgvector collection for this user
         try:
-            self._chroma_client.delete_collection(name=collection_name)
-            logger.info("Deleted ChromaDB collection", extra={"collection": collection_name})
+            vectorstore = PGVector(
+                embeddings=self._embeddings,
+                collection_name=collection_name,
+                connection=self._pgvector_connection,
+            )
+            await asyncio.to_thread(vectorstore.delete_collection)
+            logger.info("Deleted pgvector collection", extra={"collection": collection_name})
         except Exception as e:
-            logger.warning("Failed to delete ChromaDB collection", extra={"collection": collection_name, "error": str(e)})
+            logger.warning("Failed to delete pgvector collection", extra={"collection": collection_name, "error": str(e)})
 
         # Delete all document records from PostgreSQL
         query = select(Document).where(Document.user_id == user_id)
