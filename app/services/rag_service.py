@@ -1,8 +1,8 @@
+import asyncio
 import logging
 from uuid import UUID
 
-import chromadb
-from langchain_community.vectorstores import Chroma
+from langchain_postgres import PGVector
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_ollama import ChatOllama
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -25,8 +25,8 @@ Do not make up information.
 Context from documents:
 {context}
 
-You have access to tools for math and email. 
-When a tool returns a result, just inform the user of that result concisely. 
+You have access to tools for math and email.
+When a tool returns a result, just inform the user of that result concisely.
 DO NOT mention or call any tools that are not explicitly provided to you (e.g., do NOT mention 'get_email_body').
 """
 
@@ -38,11 +38,11 @@ DO NOT mention or call any tools that are not explicitly provided to you (e.g., 
 
 
 class RAGService(AbstractRAGService):
-    """Concrete RAG service backed by ChromaDB, HuggingFace embeddings, and Ollama or Gemini."""
+    """Concrete RAG service backed by pgvector, HuggingFace embeddings, and Ollama or Gemini."""
 
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
-        self._chroma_client: chromadb.ClientAPI | None = None
+        self._pgvector_connection: str | None = None
         self._embeddings: HuggingFaceEmbeddings | None = None
         self._llm: BaseChatModel | None = None
         self._rag_chain: Runnable | None = None
@@ -51,7 +51,7 @@ class RAGService(AbstractRAGService):
 
     @property
     def is_ready(self) -> bool:
-        return self._chroma_client is not None and self._llm is not None
+        return self._pgvector_connection is not None and self._llm is not None
 
     async def initialize(self) -> None:
         """Called once during app startup."""
@@ -62,11 +62,9 @@ class RAGService(AbstractRAGService):
             model_name=self._settings.EMBEDDING_MODEL_NAME
         )
 
-        logger.info("Connecting to ChromaDB", extra={"host": self._settings.CHROMA_HOST, "port": self._settings.CHROMA_PORT})
-        self._chroma_client = chromadb.HttpClient(
-            host=self._settings.CHROMA_HOST, port=int(self._settings.CHROMA_PORT)
-        )
-        logger.info("Connected to ChromaDB")
+        logger.info("Connecting to pgvector")
+        self._pgvector_connection = self._settings.pgvector_connection_string
+        logger.info("pgvector connection configured")
 
         if self._settings.LLM_MODE == "gemini":
             logger.info("Loading Gemini model", extra={"model": self._settings.GEMINI_MODEL})
@@ -122,7 +120,7 @@ class RAGService(AbstractRAGService):
         self._rag_executor = AgentExecutor(agent=rag_agent_runnable, tools=mcp_tools, verbose=True)
         self._direct_executor = AgentExecutor(agent=direct_agent_runnable, tools=mcp_tools, verbose=True)
 
-        logger.info("RAG Agent Executor initialized successfully") 
+        logger.info("RAG Agent Executor initialized successfully")
 
 
     async def query(
@@ -137,7 +135,9 @@ class RAGService(AbstractRAGService):
         """
         history_msgs = self._build_history(history)
         vectorstore = self._get_user_vectorstore(user_id)
-        docs_with_scores = vectorstore.similarity_search_with_score(question, k=8)
+        docs_with_scores = await asyncio.to_thread(
+            vectorstore.similarity_search_with_score, question, k=8
+        )
         # Filter by similarity threshold but keep at least the top result to avoid
         # incorrectly falling back to LLM when documents exist but score is borderline.
         relevant_docs = [
@@ -166,17 +166,16 @@ class RAGService(AbstractRAGService):
             "question": question,
             "history": history_msgs
         })
-        
+
         return result["output"], "llm", []
 
-        
-    def _get_user_vectorstore(self, user_id: UUID) -> Chroma:
-        """Get or create a vectorstore for a user's documents."""
-        collection_name = f"user_{user_id}"
-        return Chroma(
-            client=self._chroma_client,
-            collection_name=collection_name,
-            embedding_function=self._embeddings,
+
+    def _get_user_vectorstore(self, user_id: UUID) -> PGVector:
+        """Get a vectorstore scoped to the user's collection."""
+        return PGVector(
+            embeddings=self._embeddings,
+            collection_name=f"user_{user_id}",
+            connection=self._pgvector_connection,
         )
 
     @staticmethod
