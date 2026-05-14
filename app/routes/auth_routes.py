@@ -19,6 +19,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 async def register(
     body: RegisterRequest, session: AsyncSession = Depends(get_session)
 ) -> AuthResponse:
+    print(f'"Register new user {body.email}')
     logger.info("Register new user", extra={"email": body.email})
     existing = await session.scalar(select(User).where(User.email == body.email))
     if existing:

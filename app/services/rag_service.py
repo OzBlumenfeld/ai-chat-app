@@ -135,21 +135,35 @@ class RAGService(AbstractRAGService):
         """
         history_msgs = self._build_history(history)
         vectorstore = self._get_user_vectorstore(user_id)
-        docs_with_scores = await asyncio.to_thread(
-            vectorstore.similarity_search_with_score, question, k=8
+
+        # Use MMR to fetch diverse chunks (fetch_k candidates, return k after re-ranking).
+        # MMR penalises near-duplicate chunks so content from different pages is surfaced
+        # instead of returning multiple copies of the same section.
+        mmr_docs = await asyncio.to_thread(
+            vectorstore.max_marginal_relevance_search,
+            question,
+            k=8,
+            fetch_k=30,
         )
-        # Filter by similarity threshold but keep at least the top result to avoid
-        # incorrectly falling back to LLM when documents exist but score is borderline.
-        relevant_docs = [
-            (doc, score)
-            for doc, score in docs_with_scores
-            if score < self._settings.SIMILARITY_THRESHOLD
-        ]
-        if not relevant_docs and docs_with_scores:
-            relevant_docs = [docs_with_scores[0]]
+
+        # Score each kept doc with a plain similarity search so we can apply the
+        # threshold filter that guards against completely off-topic collections.
+        if mmr_docs:
+            scored = await asyncio.to_thread(
+                vectorstore.similarity_search_with_score, question, k=1
+            )
+            best_score = scored[0][1] if scored else 0.0
+            # If even the closest doc is beyond the threshold the collection is
+            # unrelated; otherwise accept all MMR results.
+            if best_score < self._settings.SIMILARITY_THRESHOLD:
+                relevant_docs = mmr_docs
+            else:
+                relevant_docs = []
+        else:
+            relevant_docs = []
 
         if relevant_docs:
-            context = "\n\n".join(doc.page_content for doc, _ in relevant_docs)
+            context = "\n\n".join(doc.page_content for doc in relevant_docs)
 
             result = await self._rag_executor.ainvoke({
                 "question": question,
@@ -158,7 +172,7 @@ class RAGService(AbstractRAGService):
             })
 
             answer = result["output"]
-            sources = [self._make_source(doc) for doc, _ in relevant_docs]
+            sources = [self._make_source(doc) for doc in relevant_docs]
             return answer, "rag", sources
 
         # Fallback to direct executor

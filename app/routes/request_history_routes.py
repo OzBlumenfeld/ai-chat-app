@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import get_current_user
 from app.common.uuid_mask import MaskedUUID
 from app.database import get_session
-from app.models.user import Request
+from app.models.request import Request
 from app.schemas import (
     MonthGroup,
     RequestHistoryDetailResponse,

@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import Settings
 from app.models.document import Document
-from app.models.user import Request
+from app.models.request import Request
 from app.services.interfaces import AbstractDocumentService
 
 if TYPE_CHECKING:

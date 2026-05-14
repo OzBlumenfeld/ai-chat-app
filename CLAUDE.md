@@ -5,6 +5,7 @@
 * **Python Version:** Python 3.12–3.13 (>=3.12, <3.14)
 * **API Framework:** FastAPI
 * **Orchestration:** LangChain
+* **Database:** PostgreSQL 16 with pgvector extension (for vector similarity search)
 * **Testing:** Pytest
 * **Frontend:** React
 * **Containerization:** Docker Compose (ensure all services are defined here)
@@ -16,6 +17,8 @@
 * **Run Tests:** `uv run pytest`
 * **Linting:** `uv run ruff check . --fix`
 * **Docker:** `docker-compose up --build`
+* **Database Migrations:** `uv run alembic upgrade head` (apply migrations)
+* **Generate Migration:** `uv run alembic revision --autogenerate -m "description"` (create new migration)
 
 ## Coding Standards
 * **Structure:** Follow a modular FastAPI structure (`app/api/`, `app/services/`, `app/models/`). Every file must be placed in the correct logical directory based on its responsibility.
@@ -52,9 +55,17 @@
   5. Special methods (`__str__`, `__repr__`)
 * **Dependency Injection:** Pass dependencies through `__init__` rather than importing globally within methods.
 
+## Database Configuration
+* **PostgreSQL with pgvector:** Use PostgreSQL 16 with the pgvector extension (v0.8.2+) for vector similarity search operations.
+* **Docker Image:** `pgvector/pgvector:pg16` — Always use this image in `docker-compose.yml` to ensure pgvector is available.
+* **Connection URL:** `postgresql+asyncpg://postgres:postgres@localhost:5432/postgres` — Use asyncpg driver for async operations.
+* **Schema Separation:** All tables must be created in the `rag_app` schema (configured in `app/database.py` via `MetaData(schema="rag_app")`). Never use the default `public` schema for application tables.
+* **Migrations:** Use Alembic for all schema changes. Always run `uv run alembic upgrade head` before starting the server to ensure database is up to date.
+* **pgvector Extension:** The pgvector extension must be enabled in the database. This is handled automatically by Alembic migrations. Verify with: `docker exec postgres_db psql -U postgres -c "SELECT extname, extversion FROM pg_extension WHERE extname = 'vector';"`
+
 ## Mandatory Post-Task Workflow
 After completing **any** code modification or new feature, you **MUST** execute these steps in order:
 1. **Linting:** Run `uv run ruff check . --fix`.
 2. **Unit Tests:** Run `uv run pytest` after **every** code change — no exceptions.
 3. **Validation:** If tests fail, fix the code immediately and re-run until all tests pass.
-4. **Docker Sync:** If new environment variables or dependencies were added, update the `Dockerfile` and `docker-compose.yml` accordingly.
+4. **Docker Sync:** If new environment variables or dependencies were added, update the `Dockerfile` and `docker-compose.yml` accordingly.~~
