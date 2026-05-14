@@ -10,7 +10,6 @@ from app.logging_config import setup_logging
 from app.routes import (
     auth_routes,
     document_routes,
-    email_routes,
     query_routes,
     request_history_routes,
 )
@@ -19,12 +18,12 @@ from app.services.document_service import document_service
 from app.services.docker_manager import DockerManager
 import app.models  # noqa: F401 — register models on Base.metadata
 
+setup_logging()
 logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    setup_logging()
     # Initialize Docker if in docker mode
     docker_manager = (
         DockerManager(
@@ -84,7 +83,6 @@ app.include_router(auth_routes.router)
 app.include_router(query_routes.router)
 app.include_router(document_routes.router)
 app.include_router(request_history_routes.router)
-app.include_router(email_routes.router)
 
 
 @app.get("/")

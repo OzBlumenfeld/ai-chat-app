@@ -6,7 +6,7 @@ import DocumentManager from '../components/DocumentManager'
 import HistoryList from '../components/HistoryList'
 import '../App.css'
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8080'
+const API = import.meta.env.VITE_API_URL || ''
 const MAX_HISTORY_PAIRS = 5  // last 5 Q&A pairs sent as context
 
 export default function ChatPage() {

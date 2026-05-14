@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Bootstrap settings for Params Store
-    PARAMS_STORE_URL: str
+    PARAMS_STORE_URL: str = ""
     APP_NAME: str
 
     DATABASE_URL: str
@@ -29,9 +29,6 @@ class Settings(BaseSettings):
     DOCKER_COMPOSE_PROJECT: str
 
     # RAG / vector store
-    CHROMA_HOST: str
-    CHROMA_PORT: str
-    COLLECTION_NAME: str
     EMBEDDING_MODEL_NAME: str
     LLM_MODEL_NAME: str = ""
     OLLAMA_BASE_URL: str = ""
@@ -42,9 +39,6 @@ class Settings(BaseSettings):
 
     # UUID masking (AES-256 key as 64-char hex)
     UUID_MASK_KEY: str
-
-    # Redis
-    REDIS_URL: str = "redis://localhost:6379"
 
     # Email (Gmail SMTP)
     GMAIL_SENDER_EMAIL: str = ""
@@ -64,12 +58,23 @@ class Settings(BaseSettings):
     MAX_FILES_PER_UPLOAD: int
     ALLOWED_EXTENSIONS: list[str]
 
+    @property
+    def pgvector_connection_string(self) -> str:
+        """Sync psycopg3 connection string for langchain_postgres.PGVector.
+
+        Sets search_path to rag_app schema to ensure PGVector creates/uses tables in rag_app.
+        """
+        base_url = self.DATABASE_URL.replace("+asyncpg", "+psycopg")
+        # Add options parameter to set schema search path
+        separator = "&" if "?" in base_url else "?"
+        return f"{base_url}{separator}options=-c%20search_path=rag_app,public"
+
     def __init__(self, **values: Any) -> None:
         merged_values: dict[str, Any] = dict(values)
 
-        params_store_url = os.environ.get("PARAMS_STORE_URL")
+        params_store_url = os.environ.get("PARAMS_STORE_URL", "")
 
-        if params_store_url:
+        if params_store_url and params_store_url.strip():
             try:
                 response = httpx.get(f"{params_store_url}", timeout=5.0)
                 if response.status_code == 200:

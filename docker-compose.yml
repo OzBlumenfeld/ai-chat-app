@@ -1,31 +1,4 @@
 services:
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: chroma_server
-    ports:
-      - "8000:8000"
-    volumes:
-      # This ensures your PDF data survives if the container restarts
-      - ./chroma_data:/chroma/chroma
-    environment:
-      - IS_PERSISTENT=TRUE
-      - ANONYMIZED_TELEMETRY=FALSE
-    restart: always
-    networks:
-      - docker-network
-
-  chromadb-admin:
-    image: fengzhichao/chromadb-admin:latest
-    container_name: chromadb_admin
-    depends_on:
-      - chromadb
-    ports:
-      - "3001:3001"
-    environment:
-      - CHROMA_SERVER_URL=http://chromadb:8000
-    networks:
-      - docker-network
-
   ollama:
     image: ollama/ollama:latest
     container_name: ollama_server
@@ -51,7 +24,7 @@ services:
     restart: "no"
 
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: postgres_db
     ports:
       - "5432:5432"
@@ -64,33 +37,6 @@ services:
     networks:
       - docker-network
 
-  redis:
-    image: redis:7-alpine
-    container_name: redis_cache
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - docker-network
-    restart: always
-    healthcheck:
-      test: [ "CMD", "redis-cli", "ping" ]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  redis-ui:
-    image: redis/redisinsight:latest
-    container_name: redis_ui
-    depends_on:
-      - redis
-    ports:
-      - "5540:5540"
-    networks:
-      - docker-network
-    restart: always
-
 networks:
   docker-network:
     driver: bridge
@@ -98,5 +44,4 @@ networks:
 volumes:
   postgres_data:
   ollama_data:
-  redis_data:
   file_storage: # persistent file storage for uploads and responses

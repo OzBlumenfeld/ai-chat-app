@@ -4,7 +4,7 @@ import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
 import '../App.css'
 
-const API = 'http://localhost:8080'
+const API = import.meta.env.VITE_API_URL || ''
 
 export default function LoginPage() {
   const [activeForm, setActiveForm] = useState(null)

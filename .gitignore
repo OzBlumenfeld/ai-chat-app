@@ -26,6 +26,9 @@ frontend/build/
 .claude/
 SKILL.md
 
+# Python
+.python-version
+
 # Test & lint caches
 .pytest_cache/
 .ruff_cache/

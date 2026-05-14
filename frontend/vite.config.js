@@ -4,4 +4,14 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    port: 5173,
+    strictPort: true,
+    proxy: {
+      '/auth': 'http://localhost:8080',
+      '/query': 'http://localhost:8080',
+      '/documents': 'http://localhost:8080',
+      '/history': 'http://localhost:8080',
+    },
+  },
 })
