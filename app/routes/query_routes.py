@@ -9,7 +9,7 @@ from app.database import get_session
 from app.models import Request as RequestLog
 from app.rate_limit import query_rate_limiter
 from app.schemas import QueryRequest, QueryResponse, SourceCitation
-from app.services.rag_service import rag_service
+from app.services.agent_service import agent_service
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ async def query_model(
     current_user: dict[str, Any] = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> QueryResponse:
-    if not rag_service.is_ready:
+    if not agent_service.is_ready:
         raise HTTPException(
             status_code=503,
             detail="Service is not initialized. Please wait a moment and try again.",
@@ -30,7 +30,7 @@ async def query_model(
 
     try:
         history = [{"role": m.role, "content": m.content} for m in request.history]
-        answer, source, source_infos = await rag_service.query(
+        answer, source, source_infos = await agent_service.query(
             request.question, current_user["user_id"], history=history
         )
 

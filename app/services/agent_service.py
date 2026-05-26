@@ -302,10 +302,10 @@ class AgentOrchestrationService(AbstractAgentOrchestrationService):
 
 
 # Module-level singleton — created at import time, initialized at startup
-def _create_default() -> RAGService:
+def _create_default() -> AgentOrchestrationService:
     from app.config import settings
 
-    return RAGService(settings=settings)
+    return AgentOrchestrationService(settings=settings)
 
 
-rag_service = _create_default()
+agent_service = _create_default()

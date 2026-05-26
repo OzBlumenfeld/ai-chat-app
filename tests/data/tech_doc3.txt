@@ -1,0 +1,3 @@
+[doc_003] DataSync API — Error codes
+Common error codes: DS-001 (invalid credentials), DS-002 (token expired — call /auth/refresh), DS-003 (resource not found), DS-004 (payload too large, max 5MB), DS-100 (internal sync error, retry after 60s). All errors return JSON with code, message, and request_id fields. Include request_id when contacting support.
+Source: api-docs/errors.md | Version: v2.1
