@@ -16,7 +16,6 @@ from app.routes import (
 from app.services.rag_service import rag_service
 from app.services.document_service import document_service
 from app.services.docker_manager import DockerManager
-import app.models  # noqa: F401 — register models on Base.metadata
 
 setup_logging()
 logger = logging.getLogger(__name__)

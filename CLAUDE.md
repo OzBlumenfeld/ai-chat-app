@@ -25,6 +25,8 @@
 * **LangChain:** Use LCEL (LangChain Expression Language) for chains. Always use `pydantic v2` for schemas.
 * **Local Models:** If using Ollama or LocalAI, ensure they are referenced via service names in `docker-compose.yml`.
 * **Async:** Use `async def` for FastAPI endpoints and LangChain `ainvoke`/`astream` methods.
+  - Prefer native async methods over `asyncio.to_thread`. Before wrapping a library call in `to_thread`, check whether the library exposes an `async_`-prefixed variant (e.g. `async_similarity_search_with_score` instead of `similarity_search_with_score`). Native async methods free the event loop without a thread pool, which is more efficient.
+  - Use `asyncio.gather()` to run independent I/O-bound coroutines concurrently. Sequential `await` calls are correct but wasteful when the operations don't depend on each other's results.
 * **Dependency Injection:** Use FastAPI's `Depends()` for all dependency injection in endpoints. Never manually pass dependencies as function arguments or create instances inline. Example: `async def my_endpoint(service: MyService = Depends(get_service))` instead of `async def my_endpoint(service: MyService)` with manual instantiation.
 * **Tests:** Mirror the source directory hierarchy under `tests/` (e.g., `app/services/rag.py` → `tests/services/test_rag.py`). Keep unit tests co-located with the module they test whenever possible.
 

@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str = ""
     GEMINI_MODEL: str = ""
 
+    # MCP server (SSE transport)
+    MCP_SERVER_URL: str = "http://127.0.0.1:9005/sse"
+
     # Logging
     LOG_LEVEL: str
 
