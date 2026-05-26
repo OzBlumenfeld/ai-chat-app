@@ -1,0 +1,9 @@
+A sigil (from Latin sigillum, meaning "seal") is a symbolic mark, sign, or image believed to carry magical or representational power. The word has two main contexts:
+In magic/occultism: A sigil is a symbol created with specific intent — a practitioner would design or derive a unique glyph meant to manifest a desire or represent a spiritual entity. This usage was common in medieval grimoires and is still used in modern chaos magic.
+In heraldry/symbolism: A sigil is essentially a personal seal or badge — a unique emblem identifying an individual, family, or institution. This is the sense closest to how Game of Thrones popularized the term.
+
+Medieval noble houses — what did they actually use?
+The terminology varied by context:
+TermWhat it meantArms / Coat of ArmsThe full heraldic design on a shield — the primary identifier of a noble houseBannerA large square or rectangular cloth bearing the full coat of arms, flown from castles or carried into battle by a knight of high rankStandardA long tapered flag with the house's colors, badge, and motto — used to rally troops in the fieldPennon / PennantA smaller personal flag flown from a knight's lanceBadgeA simpler symbol (not the full arms) used on livery, retainers' clothing, etc. — e.g., the Lancastrian red roseSigilUsed more in the context of seals on wax — personal marks pressed into documentsDeviceA personal emblem, sometimes with a motto, used decoratively
+So a medieval lord would have arms (the shield design), a banner (the flag version of those arms), and a badge (a simpler emblem for everyday use on retainers and property). The word sigil was more associated with wax seals and written documents than with flags.
+The Game of Thrones usage — "House Stark's sigil is the direwolf" — is a modern popularization that blends the heraldic and magical senses into one convenient word. Historically, a herald would have said arms or device, not sigil.

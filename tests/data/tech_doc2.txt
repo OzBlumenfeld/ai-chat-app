@@ -1,0 +1,3 @@
+[doc_002] DataSync API — Webhooks
+Webhooks notify your endpoint when a sync job completes. Register a webhook via PUT /webhooks with a url and event list (sync.complete, sync.failed). DataSync sends a POST request with a JSON body containing job_id, status, and timestamp. Verify authenticity using the X-DataSync-Signature header — it's an HMAC-SHA256 of the raw body using your webhook secret. Retry policy: 3 attempts with exponential backoff (5s, 25s, 125s).
+Source: api-docs/webhooks.md | Version: v2.1

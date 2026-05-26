@@ -1,0 +1,3 @@
+[doc_001] DataSync API — Authentication
+DataSync API v2 uses Bearer token authentication. Tokens are issued via POST /auth/token with your client_id and client_secret. Tokens expire after 3600 seconds. To refresh, call POST /auth/refresh with the refresh_token returned at login. Rate limit for auth endpoints is 10 requests per minute per IP. If you exceed this, you receive HTTP 429 with a Retry-After header.
+Source: api-docs/auth.md | Version: v2.1

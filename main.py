@@ -13,10 +13,9 @@ from app.routes import (
     query_routes,
     request_history_routes,
 )
-from app.services.rag_service import rag_service
+from app.services.agent_service import agent_service
 from app.services.document_service import document_service
 from app.services.docker_manager import DockerManager
-import app.models  # noqa: F401 — register models on Base.metadata
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -43,7 +42,7 @@ async def lifespan(app: FastAPI):
             await conn.run_sync(Base.metadata.create_all)
         logger.info("Database tables created.")
 
-        await rag_service.initialize()
+        await agent_service.initialize()
         await document_service.initialize()
         yield
     finally:

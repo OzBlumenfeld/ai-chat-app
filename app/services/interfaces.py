@@ -38,8 +38,8 @@ class AbstractFileStorageService(ABC):
     def delete(self, file_path: str) -> None: ...
 
 
-class AbstractRAGService(ABC):
-    """Interface for RAG query services."""
+class AbstractAgentOrchestrationService(ABC):
+    """Interface for the AI query orchestration layer."""
 
     @property
     @abstractmethod

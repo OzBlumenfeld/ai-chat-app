@@ -28,7 +28,7 @@ def auth_client():
     * Creates all tables before each test.
     * Overrides the get_session dependency so route code uses the test DB.
     * Patches the engine used by the lifespan for create_all.
-    * Mocks rag_service.initialize so RAG/ChromaDB/Ollama are skipped.
+    * Mocks agent_service.initialize so AI components are skipped.
     * Disables all rate limiters so tests never hit 429.
     """
     test_engine = create_async_engine(
@@ -53,7 +53,7 @@ def auth_client():
     with (
         patch("main.engine", test_engine),
         patch("app.database.Base.metadata.create_all", return_value=None),
-        patch("app.services.rag_service.rag_service.initialize", new_callable=AsyncMock),
+        patch("app.services.agent_service.agent_service.initialize", new_callable=AsyncMock),
         patch("app.services.document_service.document_service.initialize", new_callable=AsyncMock),
     ):
         from starlette.testclient import TestClient
